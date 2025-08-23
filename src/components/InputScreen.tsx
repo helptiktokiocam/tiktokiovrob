@@ -108,7 +108,7 @@ function InputScreen({}: Props) {
     
     try {
       // Method 1: Try external download service first
-      const externalServiceUrl = `https://dl.vid3konline.workers.dev/api/download?url=${encodeURIComponent(videoUrl)}&type=.mp4&title=${encodeURIComponent(filename)}_${quality}`;
+      const externalServiceUrl = `https://dll.help-tiktokio-cam.workers.dev/api/download?url=${encodeURIComponent(videoUrl)}&type=.mp4&title=${encodeURIComponent(filename)}_${quality}`;
       
       // Test if the external service is working
       const testResponse = await fetch(externalServiceUrl, {
