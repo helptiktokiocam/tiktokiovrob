@@ -1,5 +1,5 @@
 import { toast, Toaster } from "solid-toast";
-import { createSignal, onCleanup } from "solid-js";
+import { createSignal, onMount, onCleanup } from "solid-js";
 
 // Updated interface to match the actual API response
 interface TikTokData {
@@ -27,7 +27,6 @@ function InputScreen({}: Props) {
   const [data, setData] = createSignal<TikTokData | null>(null);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal("");
-  const [adLoaded, setAdLoaded] = createSignal(false);
   const [downloading, setDownloading] = createSignal("");
 
   const fetchData = async () => {
@@ -41,7 +40,8 @@ function InputScreen({}: Props) {
       }
       
       setData(json ?? null);
-      loadAd();
+      // Initialize AdSense ads after data is loaded
+      initializeAdSense();
       setError("");
     } catch (error: any) {
       toast.error(error.message, {
@@ -65,6 +65,35 @@ function InputScreen({}: Props) {
       }
     } catch (err) {
       toast.error("Clipboard access denied");
+    }
+  };
+
+  // Initialize Google AdSense
+  const initializeAdSense = () => {
+    // Check if AdSense script is already loaded
+    if (!document.getElementById("adsense-script")) {
+      const script = document.createElement("script");
+      script.id = "adsense-script";
+      script.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4342939946293194";
+      script.crossOrigin = "anonymous";
+      script.async = true;
+      document.head.appendChild(script);
+      
+      script.onload = () => {
+        // Initialize ads after script loads
+        try {
+          (window.adsbygoogle = window.adsbygoogle || []).push({});
+        } catch (e) {
+          console.error("AdSense initialization error:", e);
+        }
+      };
+    } else {
+      // Script already loaded, just push ads
+      try {
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+      } catch (e) {
+        console.error("AdSense push error:", e);
+      }
     }
   };
 
@@ -214,75 +243,8 @@ function InputScreen({}: Props) {
     }
   };
 
-  const loadAd = () => {
-    const adContainer = document.getElementById("ad-banner");
-    if (!adContainer) return;
-
-    // Clear previous content
-    adContainer.innerHTML = '';
-
-    // Create the AC script if it doesn't exist
-    if (!document.getElementById("aclib")) {
-      const script = document.createElement("script");
-      script.id = "aclib";
-      script.src = "https://acscdn.com/script/aclib.js";
-      script.async = true;
-      script.onload = () => {
-        if (typeof aclib !== 'undefined') {
-          runAdcashBanner();
-        } else {
-          showFallbackAd();
-        }
-      };
-      script.onerror = () => {
-        showFallbackAd();
-      };
-      document.body.appendChild(script);
-    } else {
-      // Script already exists, just run the banner
-      if (typeof aclib !== 'undefined') {
-        runAdcashBanner();
-      } else {
-        showFallbackAd();
-      }
-    }
-  };
-
-  const runAdcashBanner = () => {
-    const adContainer = document.getElementById("ad-banner");
-    if (!adContainer) return;
-
-    try {
-      adContainer.innerHTML = '<div id="ac-banner"></div>';
-      aclib.runBanner({
-        zoneId: '9480206',
-        width: 336,
-        height: 280,
-        container: document.getElementById("ac-banner")
-      });
-      setAdLoaded(true);
-    } catch (e) {
-      console.error("Adcash error:", e);
-      showFallbackAd();
-    }
-  };
-
-  const showFallbackAd = () => {
-    const adContainer = document.getElementById("ad-banner");
-    if (!adContainer) return;
-    
-    adContainer.innerHTML = `
-      <div style="width:336px;height:280px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px dashed #ddd;">
-        <div style="text-align:center;color:#666;">
-          <p>Advertisement</p>
-          <p style="font-size:12px;margin-top:8px;">Ad failed to load</p>
-        </div>
-      </div>
-    `;
-  };
-
   onCleanup(() => {
-    const script = document.getElementById("aclib");
+    const script = document.getElementById("adsense-script");
     if (script) script.remove();
   });
 
@@ -382,15 +344,16 @@ function InputScreen({}: Props) {
                       {data()!.result!.desc || "No description available"}
                     </div>
                     
-                    {/* Ad Banner Container */}
+                    {/* Google AdSense Ad */}
                     <div class="flex justify-center my-4">
-                      <div id="ad-banner" style="min-height:280px;width:336px;margin:0 auto;">
-                        {!adLoaded() && (
-                          <div style="width:336px;height:280px;display:flex;align-items:center;justify-content:center;background:#f5f5f5;border-radius:8px;">
-                            <div class="animate-pulse text-gray-400">Loading advertisement...</div>
-                          </div>
-                        )}
-                      </div>
+                      <ins 
+                        class="adsbygoogle"
+                        style="display:block"
+                        data-ad-client="ca-pub-4342939946293194"
+                        data-ad-slot="6107210287"
+                        data-ad-format="auto"
+                        data-full-width-responsive="true"
+                      ></ins>
                     </div>
                   </div>
 
