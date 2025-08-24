@@ -1,217 +1,111 @@
-import type { APIRoute } from "astro";
-import { Downloader } from "@tobyg74/tiktok-api-dl";
+import type { APIRoute } from 'astro';
+import axios from 'axios';
 
-export const prerender = false;
-
-export const GET: APIRoute = async (context) => {
+export const POST: APIRoute = async ({ request, url }) => {
   try {
-    console.log("=== ASTRO API DEBUG ===");
-    console.log("1. Full context:", Object.keys(context));
-    console.log("2. request.url:", context.request.url);
-    console.log("3. url object:", context.url);
+    // Parse the incoming request body (expects JSON with a 'url' field)
+    const { url: tiktokUrl } = await request.json();
 
-    // Try multiple ways to get URL parameters
-    const requestUrl = context.request.url;
-    const contextUrl = context.url;
-
-    console.log("4. Trying URL parsing...");
-
-    // Method 1: Parse request.url directly
-    let urlTik = "";
-    try {
-      const parsedUrl = new URL(requestUrl);
-      urlTik = parsedUrl.searchParams.get("url") || "";
-      console.log("5. Method 1 (request.url):", urlTik);
-    } catch (e) {
-      console.log("5. Method 1 failed:", e.message);
-    }
-
-    // Method 2: Use context.url
-    if (!urlTik && contextUrl) {
-      try {
-        urlTik = contextUrl.searchParams.get("url") || "";
-        console.log("6. Method 2 (context.url):", urlTik);
-      } catch (e) {
-        console.log("6. Method 2 failed:", e.message);
-      }
-    }
-
-    // Method 3: Parse manually from URL string
-    if (!urlTik) {
-      try {
-        const urlMatch = requestUrl.match(/[?&]url=([^&]*)/);
-        if (urlMatch) {
-          urlTik = decodeURIComponent(urlMatch[1]);
-          console.log("7. Method 3 (regex):", urlTik);
-        }
-      } catch (e) {
-        console.log("7. Method 3 failed:", e.message);
-      }
-    }
-
-    console.log("8. Final urlTik:", urlTik);
-
-    if (!urlTik) {
-      console.log("9. ERROR: No URL parameter found with any method");
+    if (!tiktokUrl) {
       return new Response(
-        JSON.stringify({
-          status: "error",
-          message: "url parameter is required",
-          debug: {
-            requestUrl: requestUrl,
-            contextUrl: contextUrl ? contextUrl.href : null,
-            contextSearch: contextUrl ? contextUrl.search : null,
-            tried: ["new URL(request.url)", "context.url", "regex parsing"],
-          },
-        }),
-        {
-          status: 400,
-          headers: {
-            "content-type": "application/json",
-          },
-        }
+        JSON.stringify({ error: 'Missing TikTok video URL' }),
+        { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
       );
     }
 
-    // Validate TikTok URL format
-    if (!urlTik.includes("tiktok.com") && !urlTik.includes("douyin")) {
-      console.log("10. ERROR: Invalid TikTok URL format");
-      return new Response(
-        JSON.stringify({
-          status: "error",
-          message: "Invalid TikTok URL format. Please provide a valid TikTok or Douyin URL.",
-        }),
-        {
-          status: 400,
-          headers: {
-            "content-type": "application/json",
-          },
-        }
-      );
-    }
+    // Check for action query parameter (e.g., ?action=download)
+    const action = url.searchParams.get('action');
 
-    console.log("11. URL validation passed, calling TikTok API...");
-
-    // Handle douyin URLs
-    let processedUrl = urlTik;
-    if (urlTik.includes("douyin")) {
-      try {
-        const response = await fetch(urlTik, {
-          method: "HEAD",
-          redirect: "follow",
-        });
-        processedUrl = response.url.replace("douyin", "tiktok");
-        console.log("12. Processed douyin URL:", processedUrl);
-      } catch (e) {
-        console.error("Error processing douyin URL:", e);
-      }
-    }
-
-    // Call the TikTok downloader with version 3
-    console.log("13. Calling Downloader with URL:", processedUrl);
-    const data = await Downloader(processedUrl, {
-      version: "v3",
-    });
-
-    console.log("14. TikTok API response status:", data?.status);
-    console.log("15. TikTok API response result:", data?.result);
-
-    // Check if the response is successful
-    if (!data || data.status === "error") {
-      console.log("16. ERROR: TikTok API returned error");
-      return new Response(
-        JSON.stringify({
-          status: "error",
-          message: data?.message || "Failed to fetch video data from TikTok API",
-        }),
-        {
-          status: 400,
-          headers: {
-            "content-type": "application/json",
-          },
-        }
-      );
-    }
-
-    // Validate response structure
-    if (!data.result) {
-      console.log("17. ERROR: No result data in response");
-      return new Response(
-        JSON.stringify({
-          status: "error",
-          message: "Invalid response format - missing result data",
-        }),
-        {
-          status: 400,
-          headers: {
-            "content-type": "application/json",
-          },
-        }
-      );
-    }
-
-    // Process the data to ensure it matches our interface
-    const processedData = {
-      status: data.status,
-      message: data.message,
-      result: {
-        type: data.result.type || "video",
-        desc: data.result.desc || "",
-        author: data.result.author || {
-          avatar: "",
-          nickname: "Unknown User"
+    if (action === 'download') {
+      // Fetch metadata to get the play URL
+      const metadataResponse = await axios.get('https://tikwm.com/api', {
+        params: {
+          url: encodeURIComponent(tiktokUrl),
+          hd: 1,
         },
-        music: data.result.music || "",
-        images: data.result.images || [],
-        videoHD: data.result.videoHD || "",
-        videoWatermark: data.result.videoWatermark || "",
-        uploadDate: null
-      }
-    };
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+      });
 
-    // Handle story type detection
-    const isStory = processedUrl.includes("/story/");
-    if (isStory && processedData.result) {
-      processedData.result.type = "story";
+      const metadata = metadataResponse.data;
+
+      if (metadata.code !== 0) {
+        return new Response(
+          JSON.stringify({ error: 'Failed to fetch video metadata from TikWM', detail: metadata.msg }),
+          { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+        );
+      }
+
+      const videoUrl = metadata.data.play;
+      if (!videoUrl) {
+        return new Response(
+          JSON.stringify({ error: 'No video URL found in metadata' }),
+          { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+        );
+      }
+
+      // Fetch the video file
+      const videoResponse = await axios.get(videoUrl, {
+        responseType: 'stream',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'video/mp4',
+        },
+      });
+
+      // Stream the video with download headers
+      return new Response(videoResponse.data, {
+        status: 200,
+        headers: {
+          'Content-Type': 'video/mp4',
+          'Content-Disposition': `attachment; filename="tiktok_video_${metadata.data.id}.mp4"`,
+          'Access-Control-Allow-Origin': '*',
+          'X-TikWM-Status': 'success',
+        },
+      });
     }
 
-    // Try to add upload date if available
-    try {
-      const createTime = (data.result as any)?.create_time;
-      if (createTime) {
-        const uploadDate = new Date(createTime * 1000).toISOString();
-        processedData.result.uploadDate = uploadDate;
-      }
-    } catch (e) {
-      console.log("Could not parse upload date:", e);
-    }
-
-    console.log("18. SUCCESS: Returning processed data");
-    console.log("19. Processed data structure:", JSON.stringify(processedData, null, 2));
-    
-    return new Response(JSON.stringify(processedData), {
-      status: 200,
+    // Default action: Fetch metadata
+    const response = await axios.get('https://tikwm.com/api', {
+      params: {
+        url: encodeURIComponent(tiktokUrl),
+        hd: 1,
+      },
       headers: {
-        "content-type": "application/json",
-        "access-control-allow-origin": "*",
-        "access-control-allow-methods": "GET, POST, OPTIONS",
-        "access-control-allow-headers": "Content-Type",
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
     });
-  } catch (error: any) {
-    console.error("=== API ERROR ===", error);
+
+    const data = response.data;
+
+    if (data.code !== 0) {
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch from TikWM', detail: data.msg }),
+        { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+      );
+    }
+
+    // Return metadata with both preview and download URLs
     return new Response(
       JSON.stringify({
-        status: "error",
-        message: error.message || "Internal server error",
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
-      }),
-      {
-        status: 500,
-        headers: {
-          "content-type": "application/json",
+        success: true,
+        data: {
+          id: data.data.id,
+          title: data.data.title,
+          author: data.data.author.nickname,
+          play: `/api/tik.json?action=download&tikTokUrl=${encodeURIComponent(tiktokUrl)}`, // For download
+          preview: data.data.play, // For video playback
+          cover: data.data.cover,
         },
-      }
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+    );
+  } catch (error: any) {
+    console.error('Error in TikTok API route:', error.message);
+    return new Response(
+      JSON.stringify({ error: 'Server Error', detail: error.message }),
+      { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
     );
   }
 };
