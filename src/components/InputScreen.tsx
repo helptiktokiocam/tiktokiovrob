@@ -212,7 +212,7 @@ const InputScreen = (props: Props) => {
           </button>
         </form>
         <div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-          Please be patient: Due to high traffic, retrieving your video data and processing the download may take longer than usual. We appreciate your understanding and apologize for any inconvenience.
+          🔔 Please be patient: Due to high traffic, retrieving your video data and processing the download may take longer than usual. We appreciate your understanding and apologize for any inconvenience.
         </div>
       </div>
 
