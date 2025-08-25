@@ -3,58 +3,57 @@ import sitemap from "@astrojs/sitemap";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import { autolinkConfig } from "./plugins/rehype-autolink-config";
 import rehypeSlug from "rehype-slug";
-// Remove astroI18next import - not needed anymore
 import alpinejs from "@astrojs/alpinejs";
-import solidJs from "@astrojs/solid-js"; // Added SolidJS integration
+import solidJs from "@astrojs/solid-js";
 import AstroPWA from "@vite-pwa/astro";
 import icon from "astro-icon";
 import vercel from "@astrojs/vercel";
+
 import tailwindcss from "@tailwindcss/vite";
 
-// https://astro.build/config
 export default defineConfig({
-  output: "server",
-  site: "https://tiktokio.cam",
+  output: "static", 
+  site: "https://stiktokio.com",
   adapter: vercel(),
   // Add Astro's built-in i18n configuration
   i18n: {
     defaultLocale: "en",
     locales: ["en", "it", "ar", "fr", "de", "es", "hi", "id", "ru", "pt", "ko", "tl", "nl", "ms", "tr"],
     routing: {
-      prefixDefaultLocale: false, // /about for English, /it/about for Italian
+      prefixDefaultLocale: false,
     },
   },
   vite: {
     plugins: [tailwindcss()],
     define: {
-      __DATE__: `'${new Date().toISOString()}'`, // Fixed: corrected to double underscores
+      __DATE__: `'${new Date().toISOString()}'`,
+    },
+    // Minimal configuration - just exclude the problematic library from client build
+    ssr: {
+      external: ["@tobyg74/tiktok-api-dl"],
+    },
+    optimizeDeps: {
+      exclude: ["@tobyg74/tiktok-api-dl"],
     },
   },
   integrations: [
     sitemap({
       filter(page) {
-        const url = new URL(page, 'https://tiktokio.cam');
-        
-        // All non-English language codes
+        const url = new URL(page, 'https://stiktokio.com');
         const nonEnglishLangs = ['ar', 'it', 'de', 'es', 'fr', 'hi', 'id', 'ko', 'ms', 'nl', 'pt', 'ru', 'tl', 'tr'];
-        
-        // Should exclude if:
-        const shouldExclude = 
-          // Non-English blog posts (but keeps /{lang}/blog/ index pages)
-          nonEnglishLangs.some(lang => 
-            url.pathname.startsWith(`/${lang}/blog/`) && 
+        const shouldExclude =
+          nonEnglishLangs.some(lang =>
+            url.pathname.startsWith(`/${lang}/blog/`) &&
             url.pathname !== `/${lang}/blog/`
           ) ||
-          // Pagination, tags, categories
           /\/blog\/\d+\//.test(url.pathname) ||
-          url.pathname.includes('/tag/') || 
+          url.pathname.includes('/tag/') ||
           url.pathname.includes('/category/');
         return !shouldExclude;
-      }
-    }), // <- ADDED MISSING COMMA HERE
-    // Remove astroI18next() - not needed anymore
+      },
+    }),
     alpinejs(),
-    solidJs(), // Added SolidJS integration
+    solidJs(),
     AstroPWA({
       mode: "production",
       base: "/",
@@ -99,8 +98,17 @@ export default defineConfig({
   markdown: {
     rehypePlugins: [
       rehypeSlug,
-      // This adds links to headings
       [rehypeAutolinkHeadings, autolinkConfig],
     ],
+  },
+  security: {
+    csp: {
+      directives: {
+        "script-src": ["'self'", "https://acscdn.com", "https://pagead2.googlesyndication.com"],
+        "connect-src": ["'self'", "https://tikwm.com", "https://acscdn.com"],
+        "style-src": ["'self'", "'unsafe-inline'"],
+        "img-src": ["'self'", "data:", "https://acscdn.com"],
+      },
+    },
   },
 });
