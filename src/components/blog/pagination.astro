@@ -43,16 +43,14 @@ function localizePath(path: string) {
 			<div class="flex flex-row mx-auto container justify-center gap-8">
 				<Link href={localizePath(prevUrl)} style="muted" class={`${!prevUrl ? "invisible" : ""}`}>
 					<div class="flex flex-row align-middle">
-						<Icon name="ion:arrow-back" class="w-6 h-6" />
-
+						<Icon name="tabler:chevron-left" class="w-6 h-6" />
 						<p class="ml-2">{t(prevText)}</p>
 					</div>
 				</Link>
 				<Link href={localizePath(nextUrl)} style="muted" class={`${!nextUrl ? "invisible" : ""}`}>
 					<div class="flex flex-row align-middle">
 						<span class="mr-2">{t(nextText)}</span>
-						<Icon name="ion:arrow-back" class="w-6 h-6" />
-
+						<Icon name="tabler:chevron-right" class="w-6 h-6" />
 					</div>
 				</Link>
 			</div>
