@@ -11,22 +11,47 @@ import { Icon } from "astro-icon/components";
 // Generate a new path for every collection post
 export async function getStaticPaths() {
 	try {
-		const blogEntries = await getCollection("blog");
+		console.log("Starting getStaticPaths for blog slugs...");
 		
+		const blogEntries = await getCollection("blog", ({ data }) => {
+			const isNotDraft = !data.draft;
+			const hasValidDate = data.publishDate instanceof Date;
+			const isPublished = data.publishDate <= new Date();
+			
+			return isNotDraft && hasValidDate && isPublished;
+		});
+		
+		console.log(`Found ${blogEntries.length} total blog entries`);
+
+
 		// Filter for English blog posts and process slugs
 		const localizedBlogEntries = blogEntries
 			.filter((entry) => {
-				return entry.slug && entry.slug.startsWith("en/");
+				const hasSlug = entry.slug && entry.slug.startsWith("en/");
+				console.log("Checking entry:", {
+					slug: entry.slug,
+					title: entry.data.title,
+					hasSlug
+				});
+				return hasSlug;
 			})
 			.map((post) => {
 				// Remove the "en/" prefix from the slug
 				const cleanSlug = post.slug.substring(3);
+				
+				console.log("Creating route:", {
+					originalSlug: post.slug,
+					cleanSlug,
+					title: post.data.title
+				});
 				
 				return {
 					params: { slug: cleanSlug },
 					props: { post: post },
 				};
 			});
+		
+		console.log(`Generated ${localizedBlogEntries.length} slug routes`);
 		
 		return localizedBlogEntries;
 	} catch (error) {
@@ -39,8 +64,11 @@ export async function getStaticPaths() {
 const { post } = Astro.props;
 
 if (!post) {
+	console.error("Post not found in props:", Astro.props);
 	throw new Error("Post not found");
 }
+
+console.log("Rendering post:", post.data.title);
 
 const { data, render } = post;
 const { Content } = await render();
@@ -56,14 +84,18 @@ function localizePath(path: string) {
 	if (!path || (path && path.startsWith('http')) || path === '#') return path;
 	return getRelativeLocaleUrl(lang, path);
 }
+
+// Generate proper URLs
+const categoryUrl = localizePath(`/blog/category/${post.data.category?.toLowerCase()}`);
+const blogUrl = localizePath("/blog");
 ---
 
 <Layout title={post.data.title} lang={lang}>
 	<Container>
 		<div class="mx-auto prose prose-lg dark:prose-invert mt-14">
-			
-				href={localizePath(`/blog/category/${post.data.category?.toLowerCase()}`)}
-				class="text-blue-400 dark:text-stone-400 uppercase tracking-wider text-sm font-medium no-underline">
+			<a
+				href={categoryUrl}
+				class="text-blue-400 dark:text-stone-400 uppercase tracking-wider text-sm font-medium no-underline hover:underline">
 				{post.data.category}
 			</a>
 			<h1 class="text-4xl mb-3 lg:text-5xl font-bold lg:tracking-tight mt-1 lg:leading-tight dark:text-white">
@@ -72,8 +104,8 @@ function localizePath(path: string) {
 			<div class="flex gap-2 items-center">
 				<div class="w-full md:w-auto flex flex-wrap gap-3">
 					{
-						post.data.tags.map((tag) => (
-							<a href={localizePath(`/blog/tag/${tag?.toLowerCase()}`)} class="text-sm text-gray-500 dark:text-stone-300">
+						post.data.tags && post.data.tags.map((tag) => (
+							<a href={localizePath(`/blog/tag/${tag?.toLowerCase()}`)} class="text-sm text-gray-500 dark:text-stone-300 hover:underline">
 								#{tag}
 							</a>
 						))
@@ -99,11 +131,9 @@ function localizePath(path: string) {
 			<Content />
 		</div>
 		<div class="mx-auto mt-20">
-			<a href={localizePath("/blog")}>
-				<div class="flex flex-row align-middle justify-center dark:text-stone-200">
-					<Icon name="tabler:chevron-left" class="w-6 h-6" />
-					<p class="ml-2">Back to blog</p>
-				</div>
+			<a href={blogUrl} class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline">
+				<Icon name="fluent:arrow-left-24-filled" class="w-6 h-6 mr-2" />
+				<span>Back to blog</span>
 			</a>
 		</div>
 		<div

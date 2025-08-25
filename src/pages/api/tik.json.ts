@@ -1,209 +1,198 @@
-import type { APIRoute } from 'astro';
-import axios from 'axios';
+import type { APIRoute } from "astro";
+import { Downloader } from "@tobyg74/tiktok-api-dl";
 
-async function resolveTikTokUrl(tiktokUrl: string): Promise<string> {
-  let attempts = 0;
-  const maxAttempts = 5;
-  const startTime = Date.now();
+export const prerender = false;
 
-  while (attempts < maxAttempts) {
-    try {
-      console.log(`Resolving URL: ${tiktokUrl}, Attempt: ${attempts + 1}`);
-      const response = await axios.get('https://tikwm.com/api', {
-        params: { url: encodeURIComponent(tiktokUrl), hd: 1 },
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' },
-        timeout: 30000, // 30 seconds timeout
-      });
-      console.log(`Resolved URL in ${Date.now() - startTime}ms, Response code: ${response.data.code}`);
-      if (response.data.code === 0 && response.data.data) {
-        const { author, id } = response.data.data;
-        const canonicalUrl = `https://www.tiktok.com/@${author.unique_id}/video/${id}`;
-        console.log(`Canonical URL: ${canonicalUrl}`);
-        return canonicalUrl;
-      }
-      throw new Error('Could not resolve TikTok URL');
-    } catch (error: any) {
-      console.error(`Error resolving TikTok URL: ${error.message}, Status: ${error.response?.status}, Attempt: ${attempts + 1}`);
-      if (error.response?.status === 429 || error.code === 'ECONNABORTED') {
-        attempts++;
-        if (attempts >= maxAttempts) {
-          throw new Error(`Rate limit or timeout exceeded after ${maxAttempts} attempts`);
-        }
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
-        continue;
-      }
-      throw error;
-    }
-  }
-  throw new Error('Failed to resolve TikTok URL after retries');
-}
-
-export const POST: APIRoute = async ({ request, url }) => {
+export const GET: APIRoute = async (context) => {
   try {
-    // Parse the incoming request body (expects JSON with a 'url' field)
-    const { url: tiktokUrl } = await request.json();
+    console.log("=== ASTRO API DEBUG ===");
+    console.log("1. Full context:", Object.keys(context));
+    console.log("2. request.url:", context.request.url);
+    console.log("3. url object:", context.url);
 
-    if (!tiktokUrl) {
+    // Try multiple ways to get URL parameters
+    const requestUrl = context.request.url;
+    const contextUrl = context.url;
+
+    console.log("4. Trying URL parsing...");
+
+    // Method 1: Parse request.url directly
+    let urlTik = "";
+    try {
+      const parsedUrl = new URL(requestUrl);
+      urlTik = parsedUrl.searchParams.get("url") || "";
+      console.log("5. Method 1 (request.url):", urlTik);
+    } catch (e) {
+      console.log("5. Method 1 failed:", e.message);
+    }
+
+    // Method 2: Use context.url
+    if (!urlTik && contextUrl) {
+      try {
+        urlTik = contextUrl.searchParams.get("url") || "";
+        console.log("6. Method 2 (context.url):", urlTik);
+      } catch (e) {
+        console.log("6. Method 2 failed:", e.message);
+      }
+    }
+
+    // Method 3: Parse manually from URL string
+    if (!urlTik) {
+      try {
+        const urlMatch = requestUrl.match(/[?&]url=([^&]*)/);
+        if (urlMatch) {
+          urlTik = decodeURIComponent(urlMatch[1]);
+          console.log("7. Method 3 (regex):", urlTik);
+        }
+      } catch (e) {
+        console.log("7. Method 3 failed:", e.message);
+      }
+    }
+
+    console.log("8. Final urlTik:", urlTik);
+
+    if (!urlTik) {
+      console.log("9. ERROR: No URL parameter found with any method");
+      console.log("Last Response", contextUrl);
       return new Response(
-        JSON.stringify({ error: 'Missing TikTok video URL' }),
-        { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+        JSON.stringify({
+          error: "url is required",
+          status: "error",
+          debug: {
+            requestUrl: requestUrl,
+            contextUrl: contextUrl ? contextUrl.href : null,
+            contextSearch: contextUrl ? contextUrl.search : null,
+            tried: ["new URL(request.url)", "context.url", "regex parsing"],
+          },
+        }),
+        {
+          status: 400,
+          headers: {
+            "content-type": "application/json",
+          },
+        }
       );
     }
 
-    // Resolve the URL to canonical format
-    const startTime = Date.now();
-    console.log(`Processing URL: ${tiktokUrl}`);
-    const canonicalUrl = await resolveTikTokUrl(tiktokUrl);
-    console.log(`Total resolution time: ${Date.now() - startTime}ms`);
-
-    // Check for action query parameter (e.g., ?action=download or ?action=preview)
-    const action = url.searchParams.get('action');
-
-    if (action === 'download') {
-      const downloadStartTime = Date.now();
-      // Fetch metadata to get the play URL
-      const metadataResponse = await axios.get('https://tikwm.com/api', {
-        params: {
-          url: encodeURIComponent(canonicalUrl),
-          hd: 1,
-        },
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        },
-        timeout: 30000, // 30 seconds timeout
-      });
-
-      const metadata = metadataResponse.data;
-      console.log(`Metadata fetch time: ${Date.now() - downloadStartTime}ms`);
-
-      if (metadata.code !== 0) {
-        return new Response(
-          JSON.stringify({ error: 'Failed to fetch video metadata from TikWM', detail: metadata.msg }),
-          { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
-        );
-      }
-
-      const videoUrl = metadata.data.play;
-      if (!videoUrl) {
-        return new Response(
-          JSON.stringify({ error: 'No video URL found in metadata' }),
-          { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
-        );
-      }
-
-      // Fetch the video file as arraybuffer
-      const videoResponse = await axios.get(videoUrl, {
-        responseType: 'arraybuffer',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-          'Accept': 'video/mp4',
-          'Referer': 'https://tikwm.com',
-        },
-        timeout: 60000, // 60 seconds for video download
-      });
-
-      const contentLength = videoResponse.headers['content-length'] || 'unknown';
-      console.log(`Video fetch time: ${Date.now() - downloadStartTime}ms, Content-Length: ${contentLength}, Data length: ${videoResponse.data.byteLength}`);
-
-      if (!videoResponse.data || videoResponse.data.byteLength === 0) {
-        return new Response(
-          JSON.stringify({ error: 'Empty video data received from TikWM' }),
-          { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
-        );
-      }
-
-      // Return the video data
-      return new Response(videoResponse.data, {
-        status: 200,
-        headers: {
-          'Content-Type': 'video/mp4',
-          'Content-Disposition': `attachment; filename="tiktok_video_${metadata.data.id}.mp4"`,
-          'Access-Control-Allow-Origin': '*',
-          'X-TikWM-Status': 'success',
-          'X-Content-Length': contentLength,
-        },
-      });
+    // Validate TikTok URL format
+    if (!urlTik.includes("tiktok.com") && !urlTik.includes("douyin")) {
+      console.log("10. ERROR: Invalid TikTok URL format");
+      return new Response(
+        JSON.stringify({
+          error: "Invalid TikTok URL format",
+          status: "error",
+        }),
+        {
+          status: 400,
+          headers: {
+            "content-type": "application/json",
+          },
+        }
+      );
     }
 
-    if (action === 'preview') {
-      const previewStartTime = Date.now();
-      const metadata = await axios.get('https://tikwm.com/api', {
-        params: { url: encodeURIComponent(canonicalUrl), hd: 1 },
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-        timeout: 30000,
-      });
-      console.log(`Preview metadata fetch time: ${Date.now() - previewStartTime}ms`);
+    console.log("11. URL validation passed, calling TikTok API...");
 
-      if (metadata.data.code !== 0) {
-        return new Response(
-          JSON.stringify({ error: 'Failed to fetch video metadata' }),
-          { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
-        );
+    // Handle douyin URLs
+    let processedUrl = urlTik;
+    if (urlTik.includes("douyin")) {
+      try {
+        processedUrl = await fetch(urlTik, {
+          method: "HEAD",
+          redirect: "follow",
+        }).then((response) => {
+          return response.url.replace("douyin", "tiktok");
+        });
+        console.log("12. Processed douyin URL:", processedUrl);
+      } catch (e) {
+        console.error("Error processing douyin URL:", e);
       }
-
-      const videoResponse = await axios.get(metadata.data.data.play, {
-        responseType: 'arraybuffer',
-        headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://tikwm.com' },
-        timeout: 60000,
-      });
-      console.log(`Preview video fetch time: ${Date.now() - previewStartTime}ms, Data length: ${videoResponse.data.byteLength}`);
-
-      return new Response(videoResponse.data, {
-        status: 200,
-        headers: { 'Content-Type': 'video/mp4', 'Access-Control-Allow-Origin': '*' },
-      });
     }
 
-    // Default action: Fetch metadata
-    const metadataStartTime = Date.now();
-    const response = await axios.get('https://tikwm.com/api', {
-      params: {
-        url: encodeURIComponent(canonicalUrl),
-        hd: 1,
-      },
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-      },
-      timeout: 30000,
+    // Call the TikTok downloader
+    console.log("13. Calling Downloader with URL:", processedUrl);
+    let data = await Downloader(processedUrl, {
+      version: "v3",
     });
-    console.log(`Metadata fetch time: ${Date.now() - metadataStartTime}ms`);
 
-    const data = response.data;
+    console.log("14. TikTok API response status:", data?.status);
 
-    if (data.code !== 0) {
+    // Check if the response is successful
+    if (!data || data.status === "error") {
+      console.log("15. ERROR: TikTok API returned error");
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch from TikWM', detail: data.msg }),
-        { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+        JSON.stringify({
+          error: data?.message || "Failed to fetch video data",
+          status: "error",
+        }),
+        {
+          status: 400,
+          headers: {
+            "content-type": "application/json",
+          },
+        }
       );
     }
 
-    // Return metadata with both preview and download URLs
+    // Validate response structure
+    if (!data.result) {
+      console.log("16. ERROR: No result data in response");
+      return new Response(
+        JSON.stringify({
+          error: "Invalid response format - missing result data",
+          status: "error",
+        }),
+        {
+          status: 400,
+          headers: {
+            "content-type": "application/json",
+          },
+        }
+      );
+    }
+
+    // Process the data
+    const isStory = processedUrl.includes("/story/");
+    if (isStory && data.result) {
+      data.result.type = "story";
+    }
+
+    // Add upload date
+    const createTime = data?.result?.create_time;
+    const uploadDate = createTime ? new Date(createTime * 1000).toISOString() : null;
+    if (data.result) {
+      data.result.uploadDate = uploadDate;
+    }
+
+    // Ensure author object exists
+    if (data.result && !data.result.author) {
+      data.result.author = {
+        avatar: null,
+        nickname: "Unknown Author",
+      };
+    }
+
+    console.log("17. SUCCESS: Returning processed data");
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+      },
+    });
+  } catch (error) {
+    console.error("=== API ERROR ===", error);
     return new Response(
       JSON.stringify({
-        success: true,
-        data: {
-          id: data.data.id,
-          title: data.data.title,
-          author: data.data.author.nickname,
-          play: `/api/tik.json?action=download&tikTokUrl=${encodeURIComponent(canonicalUrl)}`,
-          preview: `/api/tik.json?action=preview&tikTokUrl=${encodeURIComponent(canonicalUrl)}`,
-          cover: data.data.cover,
-          canonicalUrl,
-        },
+        error: error.message || "Internal server error",
+        status: "error",
+        stack: error.stack,
       }),
-      { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
-    );
-  } catch (error: any) {
-    console.error('Error in TikTok API route:', error.message, error.response?.status, error.response?.data);
-    if (error.response?.status === 429) {
-      return new Response(
-        JSON.stringify({ error: 'Rate limit exceeded, please try again later' }),
-        { status: 429, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
-      );
-    }
-    return new Response(
-      JSON.stringify({ error: 'Server Error', detail: error.message }),
-      { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+      {
+        status: 500,
+        headers: {
+          "content-type": "application/json",
+        },
+      }
     );
   }
 };

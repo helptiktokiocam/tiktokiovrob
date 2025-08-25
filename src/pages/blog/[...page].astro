@@ -9,56 +9,130 @@ import Layout from "@layouts/Layout.astro";
 import { getLangFromUrl, useTranslations } from "../../i18n/utils";
 
 export async function getStaticPaths({ paginate }) {
-	try {
-		// Get all blog posts
-		const posts = await getCollection("blog", ({ data }) => {
-			return !data.draft;
-		});
-		
-		// Preprocess the posts to split the slugs and get the languages
-		const processedPosts = posts.map((post) => {
-			const slugParts = post.slug.split("/");
-			let lang = "en"; // Default to English
-			
-			// If the slug starts with a language code, extract it
-			if (slugParts.length > 1) {
-				lang = slugParts[0];
-			}
-			
-			// Remove language prefix from slug for the final slug
-			const finalSlug = slugParts.length > 1 ? slugParts.slice(1).join("/") : post.slug;
-			
-			return {
-				...post,
-				slug: finalSlug,
-				lang: lang,
-			};
-		});
-		
-		// Filter posts for English language ("en")
-		const localizedPosts = processedPosts.filter(
-			(post) => post.lang === "en",
-		);
-		
-		// Sort by publish date (newest first)
-		localizedPosts.sort(
-			(a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf(),
-		);
-		
-		// Return pagination - fix the params structure
-		return paginate(localizedPosts, {
-			pageSize: 4,
-		});
-	} catch (error) {
-		console.error("Error in getStaticPaths:", error);
-		// Return empty pagination if there's an error
-		return paginate([], {
-			pageSize: 4,
-		});
-	}
+  try {
+    console.log("Starting getStaticPaths for blog pagination...");
+    
+    // Get all blog posts with better error handling
+    const posts = await getCollection("blog", ({ data }) => {
+      const isNotDraft = !data.draft;
+      const hasValidDate = data.publishDate instanceof Date;
+      const isPublished = data.publishDate <= new Date();
+      
+      console.log("Post check:", {
+        title: data.title,
+        isNotDraft,
+        hasValidDate,
+        isPublished,
+        publishDate: data.publishDate
+      });
+      
+      return isNotDraft && hasValidDate && isPublished;
+    });
+
+    console.log(`Found ${posts.length} total posts`);
+
+    // Process posts to extract language information
+    const processedPosts = posts.map((post) => {
+      const slugParts = post.slug.split("/");
+      let lang = "en"; // Default to English
+      let finalSlug = post.slug;
+
+      // If the slug starts with a language code, extract it
+      if (slugParts.length > 1 && slugParts[0].length === 2) {
+        lang = slugParts[0];
+        finalSlug = slugParts.slice(1).join("/");
+      }
+
+      console.log("Processing post:", {
+        originalSlug: post.slug,
+        finalSlug,
+        lang,
+        title: post.data.title
+      });
+
+      return {
+        ...post,
+        slug: finalSlug,
+        lang: lang,
+      };
+    });
+
+    // Filter posts for English language ("en")
+    const localizedPosts = processedPosts.filter(
+      (post) => post.lang === "en",
+    );
+
+    console.log(`Found ${localizedPosts.length} English posts`);
+
+    // Sort by publish date (newest first)
+    localizedPosts.sort(
+      (a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf(),
+    );
+
+    // Ensure at least one page is generated, even if no posts
+    if (localizedPosts.length === 0) {
+      console.log("No posts found, generating empty page");
+      return [
+        {
+          params: { page: undefined }, // For /blog
+          props: {
+            page: {
+              data: [],
+              start: 0,
+              end: -1,
+              total: 0,
+              currentPage: 1,
+              size: 4,
+              lastPage: 1,
+              url: {
+                current: '/blog',
+                prev: undefined,
+                next: undefined,
+              },
+            },
+          },
+        },
+      ];
+    }
+
+    console.log("Generating paginated routes...");
+
+    // Generate paginated routes
+    const paginatedResults = paginate(localizedPosts, {
+      pageSize: 4,
+    });
+
+    console.log(`Generated ${paginatedResults.length} paginated routes`);
+
+    return paginatedResults;
+  } catch (error) {
+    console.error("Error in getStaticPaths:", error);
+    // Return single page with empty data on error
+    return [
+      {
+        params: { page: undefined }, // For /blog
+        props: {
+          page: {
+            data: [],
+            start: 0,
+            end: -1,
+            total: 0,
+            currentPage: 1,
+            size: 4,
+            lastPage: 1,
+            url: {
+              current: '/blog',
+              prev: undefined,
+              next: undefined,
+            },
+          },
+        },
+      },
+    ];
+  }
 }
 
-const { page } = Astro.props;
+const { page = { data: [], url: { prev: undefined, next: undefined } } } = Astro.props;
 
 // Get current language and create translation function - with safe URL handling
 const safeUrl = Astro.url || new URL('/', Astro.site || 'http://localhost:4321');
@@ -67,12 +141,12 @@ const t = useTranslations(lang);
 ---
 
 <Layout title="Blog">
-	<Container>
-		<Sectionhead>
-			<Fragment slot="title">Our Blog</Fragment>
-			<Fragment slot="desc">Discover Industry Insights, Company News, and Expert Opinions.</Fragment>
-		</Sectionhead>
-		<Posts posts={page.data} />
-		<Pagination class="mt-20" prevUrl={page.url.prev} nextUrl={page.url.next} />
-	</Container>
+  <Container>
+    <Sectionhead>
+      <Fragment slot="title">Our Blog</Fragment>
+      <Fragment slot="desc">Discover Industry Insights, Company News, and Expert Opinions.</Fragment>
+    </Sectionhead>
+    <Posts posts={page.data || []} />
+    <Pagination class="mt-20" prevUrl={page.url?.prev} nextUrl={page.url?.next} />
+  </Container>
 </Layout>
