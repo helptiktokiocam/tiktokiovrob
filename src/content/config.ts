@@ -12,7 +12,16 @@ const blogCollection = defineCollection({
 			src: z.string(),
 			alt: z.string(),
 		}),
-		publishDate: z.string().transform((str) => new Date(str)),
+		publishDate: z.string().or(z.date()).transform((val) => {
+			// Handle both string and Date inputs
+			if (val instanceof Date) return val;
+			// Parse string dates more reliably
+			const date = new Date(val);
+			if (isNaN(date.getTime())) {
+				throw new Error(`Invalid date format: ${val}`);
+			}
+			return date;
+		}),
 		author: z.string().default("TikTokio Team"),
 		category: z.string(),
 		tags: z.array(z.string()),

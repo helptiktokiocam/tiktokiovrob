@@ -5,10 +5,6 @@ import Navbar from "@components/navbar/navbar.astro";
 import "@fontsource-variable/inter";
 import "./index.css";
 
-// Remove old astro-i18next imports
-// import { HeadHrefLangs } from "astro-i18next/components";
-// import i18next from "i18next";
-
 // Add new built-in i18n imports
 import { getLangFromUrl, useTranslations } from "../i18n/utils";
 import { languages } from "../i18n/ui";
@@ -39,7 +35,7 @@ const resolvedImageWithDomain = new URL(
 const { title } = Astro.props;
 const makeTitle = title
 	? `${title} | TikTokio`
-	: "TikTokio: TikTok Downloader - Download TikTok Videos no Watermark";
+	: "TikTokio - TikTok Downloader Download TikTok Videos Mp4 Free";
 
 // Simplified and safe hreflang generation
 function generateHrefLangs() {
@@ -49,7 +45,7 @@ function generateHrefLangs() {
 	}
 	
 	try {
-		const baseUrl = Astro.site?.toString() || 'https://zandkhqastro.vercel.app';
+		const baseUrl = Astro.site?.toString() || 'https://stiktokio.com';
 		
 		// Generate simple hreflang links
 		return Object.keys(languages).map(lang => {
@@ -73,7 +69,6 @@ const hrefLangs = generateHrefLangs();
 <!doctype html>
 <html lang={pageLang}>
 	<head>
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4342939946293194" crossorigin="anonymous"></script>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -85,17 +80,20 @@ const hrefLangs = generateHrefLangs();
 			<link rel="alternate" hreflang={lang} href={href} />
 		))}
 		
+		<!-- Adcash Library -->
+		<script id="aclib" type="text/javascript" src="https://acscdn.com/script/aclib.js"></script>
+		
 		<ViewTransitions />
 		<!-- Global CSS -->
 		<SEO
 			title={makeTitle}
-			description="TikTokio - Tiktok downloader to online download tiktok videos in mp4 without watermark easily, Tiktok video downloader is Fast, easy and works on any device"
+			description="Tiktokio is tiktok downloader, tiktok video downloader and tiktok story downloader download tiktok video without watermark, tiktok to mp4 and tiktok video saver."
 			canonical={canonicalURL}
 			openGraph={{
 				basic: {
 					url: canonicalURL,
 					type: "website",
-					title: `TikTokio: TikTok Downloader - Download TikTok Videos no Watermark`,
+					title: `TikTokio - TikTok Downloader Download TikTok Videos Mp4 Free`,
 					image: resolvedImageWithDomain,
 				},
 				image: {
@@ -107,7 +105,7 @@ const hrefLangs = generateHrefLangs();
 		<!-- Twitter Card -->
 		<meta name="twitter:card" content="summary_large_image" />
 		<meta name="twitter:title" content={makeTitle} />
-		<meta name="twitter:description" content="TikTokio - Tiktok downloader to online download tiktok videos in mp4 without watermark easily, Tiktok video downloader is Fast, easy and works on any device" />
+		<meta name="twitter:description" content="Tiktokio is tiktok downloader, tiktok video downloader and tiktok story downloader download tiktok video without watermark, tiktok to mp4 and tiktok video saver." />
 		<meta name="twitter:image" content={resolvedImageWithDomain} />
 		<meta name="twitter:site" content="@YourTwitterHandle" />
 		<meta name="twitter:creator" content="@tiktokio_cam" />
@@ -124,11 +122,11 @@ const hrefLangs = generateHrefLangs();
 			document.addEventListener("astro:after-swap", handleThemeChange);
 		</script>
 		<script src="/src/pwa.ts"></script>
+		<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4342939946293194" crossorigin="anonymous"></script>
 	</head>
 	<body class="dark:bg-stone-950">
 		<header class="relative">
 			<Navbar />
-			
 		</header>
 		<main>
 			<slot />
