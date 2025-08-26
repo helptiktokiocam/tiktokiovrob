@@ -30,19 +30,19 @@ function InputScreen({}: Props) {
 
   // Function to extract TikTok URL from text that might contain promotional content
   const extractTikTokUrl = (text: string): string => {
-    // Common TikTok URL patterns
+    // Common TikTok URL patterns - updated to handle query parameters
     const patterns = [
+      // Standard tiktok.com URLs with or without query parameters
+      /https?:\/\/(?:www\.)?tiktok\.com\/@[^\/\s]*\/video\/\d+[^\s]*/g,
       // vm.tiktok.com with short codes
-      /https?:\/\/vm\.tiktok\.com\/[A-Za-z0-9]+/g,
+      /https?:\/\/vm\.tiktok\.com\/[A-Za-z0-9]+[^\s]*/g,
       // vm.tiktok.com with numeric IDs
-      /https?:\/\/vm\.tiktok\.com\/\d+/g,
+      /https?:\/\/vm\.tiktok\.com\/\d+[^\s]*/g,
       // vt.tiktok.com
-      /https?:\/\/vt\.tiktok\.com\/[A-Za-z0-9]+/g,
-      // Standard tiktok.com URLs
-      /https?:\/\/(?:www\.)?tiktok\.com\/@[^\/\s]*\/video\/\d+/g,
+      /https?:\/\/vt\.tiktok\.com\/[A-Za-z0-9]+[^\s]*/g,
       // Mobile tiktok URLs
-      /https?:\/\/m\.tiktok\.com\/v\/\d+\.html/g,
-      // Any tiktok.com URL
+      /https?:\/\/m\.tiktok\.com\/v\/\d+\.html[^\s]*/g,
+      // Any tiktok.com URL (fallback)
       /https?:\/\/[^\/]*tiktok\.com\/[^\s]*/g
     ];
 
@@ -97,14 +97,28 @@ function InputScreen({}: Props) {
     // First extract the TikTok URL if text contains promotional content
     cleanUrl = extractTikTokUrl(cleanUrl);
     
-    // Remove tracking parameters that might interfere
-    cleanUrl = cleanUrl.split('?')[0];
+    // Remove all query parameters and fragments from desktop/laptop TikTok URLs
+    // Handle parameters like: ?is_from_webapp=1&sender_device=pc&web_id=123456
+    if (cleanUrl.includes('?')) {
+      cleanUrl = cleanUrl.split('?')[0];
+      console.log("Removed query parameters, clean URL:", cleanUrl);
+    }
     
-    // Ensure https protocol
+    // Remove URL fragments (# and everything after)
+    if (cleanUrl.includes('#')) {
+      cleanUrl = cleanUrl.split('#')[0];
+      console.log("Removed fragments, clean URL:", cleanUrl);
+    }
+    
+    // Ensure we have https protocol
     if (!cleanUrl.startsWith('http')) {
       cleanUrl = 'https://' + cleanUrl;
     }
     
+    // Remove any trailing slashes that might cause issues
+    cleanUrl = cleanUrl.replace(/\/+$/, '');
+    
+    console.log("Final cleaned URL:", cleanUrl);
     return cleanUrl;
   };
 
@@ -324,7 +338,7 @@ function InputScreen({}: Props) {
       if (!document.querySelector('script[src*="adsbygoogle.js"]')) {
         const adsenseScript = document.createElement('script');
         adsenseScript.async = true;
-        adsenseScript.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4342939946293194";
+        adsenseScript.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-YOUR_PUBLISHER_ID";
         adsenseScript.crossOrigin = "anonymous";
         document.head.appendChild(adsenseScript);
       }
@@ -640,8 +654,8 @@ function InputScreen({}: Props) {
                       <div class="adsense-container" style="width:336px;margin:0 auto;">
                         <ins class="adsbygoogle"
                              style="display:block"
-                             data-ad-client="ca-pub-4342939946293194"
-                             data-ad-slot="6558620513"
+                             data-ad-client="ca-pub-YOUR_PUBLISHER_ID"
+                             data-ad-slot="YOUR_AD_SLOT_ID"
                              data-ad-format="rectangle"
                              data-full-width-responsive="true"></ins>
                       </div>
