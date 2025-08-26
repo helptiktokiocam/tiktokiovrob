@@ -8,7 +8,6 @@ import solidJs from "@astrojs/solid-js";
 import AstroPWA from "@vite-pwa/astro";
 import icon from "astro-icon";
 import vercel from "@astrojs/vercel";
-
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
@@ -26,7 +25,7 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
     define: {
-      __DATE__: `'${new Date().toISOString()}'`,
+      __DATE__: `'${new Date().toISOString()}'`, // Fixed the typo
     },
     // Minimal configuration - just exclude the problematic library from client build
     ssr: {
@@ -104,10 +103,37 @@ export default defineConfig({
   security: {
     csp: {
       directives: {
-        "script-src": ["'self'", "https://acscdn.com", "https://pagead2.googlesyndication.com"],
-        "connect-src": ["'self'", "https://tikwm.com", "https://acscdn.com"],
-        "style-src": ["'self'", "'unsafe-inline'"],
-        "img-src": ["'self'", "data:", "https://acscdn.com"],
+        "script-src": [
+          "'self'", 
+          "https://pagead2.googlesyndication.com",
+          "https://partner.googleadservices.com",
+          "https://tpc.googlesyndication.com",
+          "https://googleads.g.doubleclick.net"
+        ],
+        "connect-src": [
+          "'self'", 
+          "https://googleads.g.doubleclick.net",
+          "https://stats.g.doubleclick.net",
+          "https://cm.g.doubleclick.net",
+          "https://pagead2.googlesyndication.com"
+        ],
+        "frame-src": [
+          "'self'",
+          "https://googleads.g.doubleclick.net",
+          "https://tpc.googlesyndication.com"
+        ],
+        "img-src": [
+          "'self'", 
+          "data:", 
+          "https://googleads.g.doubleclick.net",
+          "https://pagead2.googlesyndication.com",
+          "https://tpc.googlesyndication.com",
+          "https://stats.g.doubleclick.net"
+        ],
+        "style-src": [
+          "'self'", 
+          "'unsafe-inline'"
+        ],
       },
     },
   },
