@@ -82,7 +82,7 @@ export async function getStaticPaths({ paginate }) {
               end: -1,
               total: 0,
               currentPage: 1,
-              size: 4,
+              size: 10,
               lastPage: 1,
               url: {
                 current: '/blog',
@@ -99,7 +99,7 @@ export async function getStaticPaths({ paginate }) {
 
     // Generate paginated routes
     const paginatedResults = paginate(localizedPosts, {
-      pageSize: 4,
+      pageSize: 10,
     });
 
     console.log(`Generated ${paginatedResults.length} paginated routes`);
