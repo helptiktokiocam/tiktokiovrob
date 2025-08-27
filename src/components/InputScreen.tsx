@@ -30,10 +30,12 @@ function InputScreen({}: Props) {
 
   // Function to extract TikTok URL from text that might contain promotional content
   const extractTikTokUrl = (text: string): string => {
-    // Common TikTok URL patterns - updated to handle query parameters
+    // Common TikTok URL patterns - updated to handle query parameters and new formats
     const patterns = [
       // Standard tiktok.com URLs with or without query parameters
       /https?:\/\/(?:www\.)?tiktok\.com\/@[^\/\s]*\/video\/\d+[^\s]*/g,
+      // TikTok short URLs with /t/ format
+      /https?:\/\/(?:www\.)?tiktok\.com\/t\/[A-Za-z0-9]+[^\s]*/g,
       // vm.tiktok.com with short codes
       /https?:\/\/vm\.tiktok\.com\/[A-Za-z0-9]+[^\s]*/g,
       // vm.tiktok.com with numeric IDs
@@ -439,7 +441,7 @@ function InputScreen({}: Props) {
       {/* Enhanced Input Form Section */}
       <div class="max-w-6xl mx-auto">
         <div class="download-box rounded-2xl">
-          <div class="bg-cyan-800/80 rounded-xl backdrop-blur-md p-4">
+          <div class="bg-pink-200 rounded backdrop-blur-md p-2">
             <form class="flex flex-col md:flex-row items-stretch md:items-center gap-2"
               onSubmit={(e) => {
                 e.preventDefault();
@@ -563,7 +565,7 @@ function InputScreen({}: Props) {
                     }, 100); // Small delay to let paste complete
                   }}
                   placeholder="Paste TikTok video link or shared content here (we'll extract the URL automatically)"
-                  class="w-full h-14 border-gray-700 text-black rounded-xl px-5 pr-20 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
+                  class="w-full h-14 border-gray-700 text-black rounded-xl px-5 pr-20 focus:outline-none focus:border-transparent transition-all duration-300"
                 />
                 <button type="button" 
                   onClick={handlePaste} 
@@ -576,7 +578,7 @@ function InputScreen({}: Props) {
               </div>
               <button type="submit" 
                 disabled={loading() || autoProcessing()}
-                class="h-14 px-8 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 disabled:from-gray-500 disabled:to-gray-400 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2 transform hover:scale-105 disabled:transform-none disabled:cursor-not-allowed">
+                class="h-14 px-8 bg-blue-600 disabled:from-gray-500 disabled:to-gray-400 text-white font-medium rounded shadow-lg hover:shadow transition-all duration-300 flex items-center justify-center gap-2 transform hover:scale-105 disabled:transform-none disabled:cursor-not-allowed">
                 {loading() ? (
                   <>
                     <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24">
@@ -622,10 +624,10 @@ function InputScreen({}: Props) {
               </div>
             )}
             
-           
+            
           </div>
-           {/* URL Format Help */}
-            <div class="mt-3 text-xs text-white/70">
+          {/* URL Format Help */}
+            <div class="py-8 text-base text-white/70">
               <p>
                 {autoProcessing() ? (
                   <span class="flex items-center gap-1">
@@ -636,7 +638,7 @@ function InputScreen({}: Props) {
                     Auto-processing TikTok Lite shared content...
                   </span>
                 ) : (
-                  "Supported: Direct TikTok URLs, TikTok Lite shared content, vm.tiktok.com, m.tiktok.com - we'll extract the video URL automatically!"
+                  ""
                 )}
               </p>
             </div>
@@ -693,7 +695,7 @@ function InputScreen({}: Props) {
                       </h2>
                       <div class="text-gray-400 text-xs px-2 py-1 bg-white/10 rounded-full"></div>
                     </div>
-                    <div class="text-gray-400 text-xs mb-2">
+                    <div class="text-gray-900 text-base mb-2">
                       {data()?.result?.desc || "No description available"}
                     </div>
                     
@@ -717,7 +719,7 @@ function InputScreen({}: Props) {
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                         </svg> 
-                        <a href={`https://dl.tiktokiocdn.workers.dev/api/download?url=${encodeURIComponent(data()!.result!.videoSD!)}&type=.mp4&title=${getSafeFilename()}`} class="text-white no-underline">
+                        <a href={`https://dll.help-tiktokio-cam.workers.dev/api/download?url=${encodeURIComponent(data()!.result!.videoSD!)}&type=.mp4&title=${getSafeFilename()}`} class="text-white no-underline">
                           Download SD (No Watermark)
                         </a>
                       </button>
@@ -728,7 +730,7 @@ function InputScreen({}: Props) {
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                         </svg> 
-                        <a href={`https://dl.tiktokiocdn.workers.dev/api/download?url=${encodeURIComponent((data()!.result!.videoHD || data()!.result!.video_hd)!)}&type=.mp4&title=${getSafeFilename()}`} class="text-white no-underline">
+                        <a href={`https://dll.help-tiktokio-cam.workers.dev/api/download?url=${encodeURIComponent((data()!.result!.videoHD || data()!.result!.video_hd)!)}&type=.mp4&title=${getSafeFilename()}`} class="text-white no-underline">
                           Download HD (No Watermark)
                         </a>
                       </button>
@@ -739,7 +741,7 @@ function InputScreen({}: Props) {
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
                         </svg> 
-                        <a href={`https://dl.tiktokiocdn.workers.dev/api/download?url=${encodeURIComponent(data()!.result!.videoWatermark!)}&type=.mp4&title=${getSafeFilename()}`} class="text-white no-underline">
+                        <a href={`https://dll.help-tiktokio-cam.workers.dev/api/download?url=${encodeURIComponent(data()!.result!.videoWatermark!)}&type=.mp4&title=${getSafeFilename()}`} class="text-white no-underline">
                           Download (With Watermark)
                         </a>
                       </button>
@@ -750,7 +752,7 @@ function InputScreen({}: Props) {
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
                         </svg> 
-                        <a href={`https://dl.tiktokiocdn.workers.dev/api/download?url=${encodeURIComponent(data()!.result!.music!)}&type=.mp3&title=${getSafeFilename()}_audio`} class="text-white no-underline">
+                        <a href={`https://dll.help-tiktokio-cam.workers.dev/api/download?url=${encodeURIComponent(data()!.result!.music!)}&type=.mp3&title=${getSafeFilename()}_audio`} class="text-white no-underline">
                           Download Audio Only
                         </a>
                       </button>

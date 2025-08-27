@@ -15,8 +15,28 @@ async function normalizeTikTokUrl(url: string): Promise<string> {
   
   // Handle different TikTok URL formats
   try {
-    // 1. Handle vm.tiktok.com short URLs (need expansion)
-    if (normalizedUrl.includes('vm.tiktok.com') && !normalizedUrl.includes('ZSAD')) {
+    // 1. Handle tiktok.com/t/ short URLs (new format)
+    if (normalizedUrl.includes('/t/')) {
+      console.log("Detected tiktok.com/t/ short URL, attempting expansion...");
+      try {
+        const response = await fetch(normalizedUrl, {
+          method: 'HEAD',
+          redirect: 'follow',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          }
+        });
+        if (response.url && response.url !== normalizedUrl) {
+          normalizedUrl = response.url;
+          console.log("Expanded /t/ URL:", normalizedUrl);
+        }
+      } catch (expansionError) {
+        console.log("/t/ URL expansion failed, using original:", expansionError);
+      }
+    }
+    
+    // 2. Handle vm.tiktok.com short URLs (need expansion)
+    else if (normalizedUrl.includes('vm.tiktok.com') && !normalizedUrl.includes('ZSAD')) {
       console.log("Detected vm.tiktok.com numeric URL, needs expansion");
       // Extract video ID and convert to proper short URL format
       const videoIdMatch = normalizedUrl.match(/(\d{19})/);
@@ -27,7 +47,7 @@ async function normalizeTikTokUrl(url: string): Promise<string> {
       }
     }
     
-    // 2. Handle vt.tiktok.com URLs
+    // 3. Handle vt.tiktok.com URLs
     else if (normalizedUrl.includes('vt.tiktok.com')) {
       console.log("Detected vt.tiktok.com URL, converting...");
       const videoIdMatch = normalizedUrl.match(/(\d{19})/);
@@ -38,7 +58,7 @@ async function normalizeTikTokUrl(url: string): Promise<string> {
       }
     }
     
-    // 3. Handle mobile URLs (m.tiktok.com)
+    // 4. Handle mobile URLs (m.tiktok.com)
     else if (normalizedUrl.includes('m.tiktok.com/v/')) {
       console.log("Detected mobile URL, converting...");
       const videoIdMatch = normalizedUrl.match(/\/v\/(\d{19})/);
@@ -49,14 +69,14 @@ async function normalizeTikTokUrl(url: string): Promise<string> {
       }
     }
     
-    // 4. Handle URLs with missing username (/@/video/)
+    // 5. Handle URLs with missing username (/@/video/)
     else if (normalizedUrl.includes('/@/video/')) {
       console.log("Detected URL with missing username, fixing...");
       normalizedUrl = normalizedUrl.replace('/@/video/', '/@placeholder/video/');
       console.log("Fixed URL:", normalizedUrl);
     }
     
-    // 5. Handle vm.tiktok.com with random string (these should work, just try to expand)
+    // 6. Handle vm.tiktok.com with random string (these should work, just try to expand)
     else if (normalizedUrl.includes('vm.tiktok.com') && normalizedUrl.match(/[A-Za-z]/)) {
       console.log("Detected vm.tiktok.com with string, attempting expansion...");
       try {
@@ -76,7 +96,7 @@ async function normalizeTikTokUrl(url: string): Promise<string> {
       }
     }
     
-    // 6. Ensure we have https protocol
+    // 7. Ensure we have https protocol
     if (!normalizedUrl.startsWith('http')) {
       normalizedUrl = 'https://' + normalizedUrl;
     }

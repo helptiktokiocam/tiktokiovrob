@@ -83,7 +83,7 @@ export const ui = {
     'features.description': 'Tiktokio Video Downloader is a powerful tool designed to help you download and save your favorite Tiktok videos',
     'features.tiktokdownloader': 'Tiktok Downloader - ',
     'features.online': 'Download Tiktok Videos Without Watermark',
-    'features.para1': 'Tiktokio is fastest <a href="/">tiktok downloader</a> to download tiktok video. This tiktok video downloader no watermark similar to ssstiktok tiktok downloader helps user to download tiktok video without watermark, download tiktok story, Tiktok mp3 downloader.',
+    'features.para1': 'Tiktokio is fastest <a href="/tiktok-downloader">tiktok downloader</a> to download tiktok video. This tiktok video downloader no watermark similar to ssstiktok tiktok downloader helps user to download tiktok video without watermark, download tiktok story, Tiktok mp3 downloader.',
     'features.fastdownloadh': 'Fast Downloads',
     'features.fastdownload': 'Tiktok Video Downloader processes videos, photos, reels and stories in seconds with high-speed technology.',
     'features.highqualityh': 'High Quality',
@@ -2662,3 +2662,5 @@ ar: {
   
 
 } as const;
+
+

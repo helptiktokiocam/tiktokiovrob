@@ -62,7 +62,7 @@ export async function getStaticPaths({ paginate }) {
       (post) => post.lang === "en",
     );
 
-    console.log(`Found ${localizedPosts.length} English posts`);
+console.log(`Found ${localizedPosts.length} English posts`);
 
     // Sort by publish date (newest first)
     localizedPosts.sort(

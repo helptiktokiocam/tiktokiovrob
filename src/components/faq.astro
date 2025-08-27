@@ -163,3 +163,30 @@ const faqs = [
 	
 </div>
 </div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const faqButtons = document.querySelectorAll('.faq-card button');
+    faqButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const answerDiv = button.nextElementSibling;
+        const svg = button.querySelector('svg');
+        
+        // Toggle display of the answer
+        if (answerDiv.style.display === 'none' || answerDiv.style.display === '') {
+          answerDiv.style.display = 'block';
+          svg.classList.add('rotate-180'); // Rotate arrow up
+        } else {
+          answerDiv.style.display = 'none';
+          svg.classList.remove('rotate-180'); // Reset arrow
+        }
+      });
+    });
+  });
+</script>
+
+<style>
+  .rotate-180 {
+    transform: rotate(180deg);
+  }
+</style>
