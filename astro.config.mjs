@@ -7,13 +7,12 @@ import alpinejs from "@astrojs/alpinejs";
 import solidJs from "@astrojs/solid-js";
 import AstroPWA from "@vite-pwa/astro";
 import icon from "astro-icon";
-import vercel from "@astrojs/vercel";
+import vercel from "@astrojs/vercel/serverless";
 import tailwindcss from "@tailwindcss/vite";
 
-
 export default defineConfig({
-  output: "static", 
-  site: "https://tiktokio.cam",
+  output: "server", 
+  site: "https://stiktokio.com",
   adapter: vercel(),
   // Add Astro's built-in i18n configuration
   i18n: {
@@ -26,7 +25,7 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
     define: {
-      __DATE__: `'${new Date().toISOString()}'`, // Fixed the typo
+      __DATE__: `'${new Date().toISOString()}'`,
     },
     // Minimal configuration - just exclude the problematic library from client build
     ssr: {
@@ -39,7 +38,7 @@ export default defineConfig({
   integrations: [
     sitemap({
       filter(page) {
-        const url = new URL(page, 'https://tiktokio.cam');
+        const url = new URL(page, 'https://stiktokio.com');
         const nonEnglishLangs = ['ar', 'it', 'de', 'es', 'fr', 'hi', 'id', 'ko', 'ms', 'nl', 'pt', 'ru', 'tl', 'tr'];
         const shouldExclude =
           nonEnglishLangs.some(lang =>
@@ -104,37 +103,10 @@ export default defineConfig({
   security: {
     csp: {
       directives: {
-        "script-src": [
-          "'self'", 
-          "https://pagead2.googlesyndication.com",
-          "https://partner.googleadservices.com",
-          "https://tpc.googlesyndication.com",
-          "https://googleads.g.doubleclick.net"
-        ],
-        "connect-src": [
-          "'self'", 
-          "https://googleads.g.doubleclick.net",
-          "https://stats.g.doubleclick.net",
-          "https://cm.g.doubleclick.net",
-          "https://pagead2.googlesyndication.com"
-        ],
-        "frame-src": [
-          "'self'",
-          "https://googleads.g.doubleclick.net",
-          "https://tpc.googlesyndication.com"
-        ],
-        "img-src": [
-          "'self'", 
-          "data:", 
-          "https://googleads.g.doubleclick.net",
-          "https://pagead2.googlesyndication.com",
-          "https://tpc.googlesyndication.com",
-          "https://stats.g.doubleclick.net"
-        ],
-        "style-src": [
-          "'self'", 
-          "'unsafe-inline'"
-        ],
+        "script-src": ["'self'", "https://acscdn.com", "https://pagead2.googlesyndication.com"],
+        "connect-src": ["'self'", "https://tikwm.com", "https://acscdn.com"],
+        "style-src": ["'self'", "'unsafe-inline'"],
+        "img-src": ["'self'", "data:", "https://acscdn.com"],
       },
     },
   },
