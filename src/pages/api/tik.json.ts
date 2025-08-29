@@ -1,392 +1,268 @@
 import type { APIRoute } from "astro";
-import { Downloader } from "@tobyg74/tiktok-api-dl";
 
 export const prerender = false;
 
-// Function to normalize and expand TikTok URLs
-async function normalizeTikTokUrl(url: string): Promise<string> {
-  console.log("=== URL NORMALIZATION ===");
-  console.log("Original URL:", url);
-  
-  let normalizedUrl = url.trim();
-  
-  // Remove any trailing slashes and parameters we don't need
-  normalizedUrl = normalizedUrl.replace(/\?.*$/, '').replace(/\/$/, '');
-  
-  // Handle different TikTok URL formats
+// Function to resolve short URLs
+async function resolveShortUrl(url: string): Promise<string> {
   try {
-    // 1. Handle tiktok.com/t/ short URLs (new format)
-    if (normalizedUrl.includes('/t/')) {
-      console.log("Detected tiktok.com/t/ short URL, attempting expansion...");
-      try {
-        const response = await fetch(normalizedUrl, {
-          method: 'HEAD',
-          redirect: 'follow',
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-          }
-        });
-        if (response.url && response.url !== normalizedUrl) {
-          normalizedUrl = response.url;
-          console.log("Expanded /t/ URL:", normalizedUrl);
-        }
-      } catch (expansionError) {
-        console.log("/t/ URL expansion failed, using original:", expansionError);
-      }
-    }
+    console.log("Resolving short URL:", url);
     
-    // 2. Handle vm.tiktok.com short URLs (need expansion)
-    else if (normalizedUrl.includes('vm.tiktok.com') && !normalizedUrl.includes('ZSAD')) {
-      console.log("Detected vm.tiktok.com numeric URL, needs expansion");
-      // Extract video ID and convert to proper short URL format
-      const videoIdMatch = normalizedUrl.match(/(\d{19})/);
-      if (videoIdMatch) {
-        const videoId = videoIdMatch[1];
-        normalizedUrl = `https://www.tiktok.com/@placeholder/video/${videoId}`;
-        console.log("Converted to standard format:", normalizedUrl);
-      }
-    }
+    const response = await fetch(url, {
+      method: 'HEAD',
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Mobile/15E148 Safari/604.1',
+      },
+      signal: AbortSignal.timeout(10000)
+    });
     
-    // 3. Handle vt.tiktok.com URLs
-    else if (normalizedUrl.includes('vt.tiktok.com')) {
-      console.log("Detected vt.tiktok.com URL, converting...");
-      const videoIdMatch = normalizedUrl.match(/(\d{19})/);
-      if (videoIdMatch) {
-        const videoId = videoIdMatch[1];
-        normalizedUrl = `https://www.tiktok.com/@placeholder/video/${videoId}`;
-        console.log("Converted to standard format:", normalizedUrl);
-      }
-    }
-    
-    // 4. Handle mobile URLs (m.tiktok.com)
-    else if (normalizedUrl.includes('m.tiktok.com/v/')) {
-      console.log("Detected mobile URL, converting...");
-      const videoIdMatch = normalizedUrl.match(/\/v\/(\d{19})/);
-      if (videoIdMatch) {
-        const videoId = videoIdMatch[1];
-        normalizedUrl = `https://www.tiktok.com/@placeholder/video/${videoId}`;
-        console.log("Converted to standard format:", normalizedUrl);
-      }
-    }
-    
-    // 5. Handle URLs with missing username (/@/video/)
-    else if (normalizedUrl.includes('/@/video/')) {
-      console.log("Detected URL with missing username, fixing...");
-      normalizedUrl = normalizedUrl.replace('/@/video/', '/@placeholder/video/');
-      console.log("Fixed URL:", normalizedUrl);
-    }
-    
-    // 6. Handle vm.tiktok.com with random string (these should work, just try to expand)
-    else if (normalizedUrl.includes('vm.tiktok.com') && normalizedUrl.match(/[A-Za-z]/)) {
-      console.log("Detected vm.tiktok.com with string, attempting expansion...");
-      try {
-        const response = await fetch(normalizedUrl, {
-          method: 'HEAD',
-          redirect: 'follow',
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-          }
-        });
-        if (response.url && response.url !== normalizedUrl) {
-          normalizedUrl = response.url;
-          console.log("Expanded URL:", normalizedUrl);
-        }
-      } catch (expansionError) {
-        console.log("URL expansion failed, using original:", expansionError);
-      }
-    }
-    
-    // 7. Ensure we have https protocol
-    if (!normalizedUrl.startsWith('http')) {
-      normalizedUrl = 'https://' + normalizedUrl;
-    }
-    
-    console.log("Final normalized URL:", normalizedUrl);
-    return normalizedUrl;
-    
+    const resolvedUrl = response.url;
+    console.log("Resolved to:", resolvedUrl);
+    return resolvedUrl;
   } catch (error) {
-    console.error("Error in URL normalization:", error);
-    return url; // Return original if normalization fails
+    console.log("URL resolution failed:", error.message);
+    return url; // Return original if resolution fails
   }
 }
 
-// Function to try multiple URL variations if the first one fails
-async function tryMultipleUrlFormats(originalUrl: string): Promise<any> {
-  const normalizedUrl = await normalizeTikTokUrl(originalUrl);
-  
-  // Extract video ID for creating variations
-  const videoIdMatch = normalizedUrl.match(/(\d{19})/);
-  if (!videoIdMatch) {
-    throw new Error("Could not extract video ID from URL");
+// Multiple API services to try
+async function tryMultipleServices(url: string) {
+  // First resolve short URLs
+  let processedUrl = url;
+  if (url.includes('/t/') || url.includes('vm.tiktok.com')) {
+    processedUrl = await resolveShortUrl(url);
   }
   
-  const videoId = videoIdMatch[1];
-  
-  // Create multiple URL variations to try
-  const urlVariations = [
-    normalizedUrl,
-    `https://www.tiktok.com/@/video/${videoId}`,
-    `https://www.tiktok.com/@tiktok/video/${videoId}`,
-    `https://www.tiktok.com/@user/video/${videoId}`,
-    `https://vm.tiktok.com/${videoId}/`,
-    `https://m.tiktok.com/v/${videoId}.html`,
+  const services = [
+    {
+      name: 'TikWM',
+      url: `https://www.tikwm.com/api/?url=${encodeURIComponent(processedUrl)}`,
+      transform: (data: any) => ({
+        status: "success",
+        result: {
+          type: data.data?.images ? "image" : "video",
+          author: {
+            avatar: data.data?.author?.avatar || null,
+            nickname: data.data?.author?.unique_id || data.data?.author?.nickname || "Unknown Author"
+          },
+          desc: data.data?.title || "No description available",
+          videoSD: data.data?.play || null,
+          videoHD: data.data?.hdplay || data.data?.play || null,
+          video_hd: data.data?.hdplay || null,
+          videoWatermark: data.data?.wmplay || null,
+          music: data.data?.music || null,
+          uploadDate: data.data?.create_time ? new Date(data.data.create_time * 1000).toISOString() : null,
+          images: data.data?.images || null
+        }
+      })
+    },
+    {
+      name: 'TikWM Alt',
+      url: `https://tikwm.com/api/?url=${encodeURIComponent(processedUrl)}`,
+      transform: (data: any) => ({
+        status: "success",
+        result: {
+          type: data.data?.images ? "image" : "video",
+          author: {
+            avatar: data.data?.author?.avatar || null,
+            nickname: data.data?.author?.unique_id || data.data?.author?.nickname || "Unknown Author"
+          },
+          desc: data.data?.title || "No description available",
+          videoSD: data.data?.play || null,
+          videoHD: data.data?.hdplay || data.data?.play || null,
+          video_hd: data.data?.hdplay || null,
+          videoWatermark: data.data?.wmplay || null,
+          music: data.data?.music || null,
+          uploadDate: data.data?.create_time ? new Date(data.data.create_time * 1000).toISOString() : null,
+          images: data.data?.images || null
+        }
+      })
+    },
+    {
+      name: 'SnapTik API',
+      url: `https://snaptik.app/abc?url=${encodeURIComponent(processedUrl)}`,
+      transform: (data: any) => ({
+        status: "success",
+        result: {
+          type: "video",
+          author: {
+            avatar: data.avatarLarger || null,
+            nickname: data.authorMeta?.name || "Unknown Author"
+          },
+          desc: data.text || "No description available",
+          videoSD: data.collector?.[0]?.url || null,
+          videoHD: data.collector?.[1]?.url || data.collector?.[0]?.url || null,
+          video_hd: data.collector?.[1]?.url || null,
+          videoWatermark: data.collector?.find((item: any) => item.type === 'watermark')?.url || null,
+          music: data.musicMeta?.playUrl || null,
+          uploadDate: data.createTimeISO || null
+        }
+      })
+    }
   ];
   
-  // Remove duplicates
-  const uniqueUrls = [...new Set(urlVariations)];
-  
-  console.log("Trying URL variations:", uniqueUrls);
+  const userAgents = [
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Mobile/15E148 Safari/604.1',
+    'Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'TikTok 26.2.0 rv:262018 (iPhone; iOS 14.4.2; en_US) Cronet'
+  ];
   
   let lastError = null;
   
-  for (const urlToTry of uniqueUrls) {
-    try {
-      console.log(`Attempting to fetch with URL: ${urlToTry}`);
-      
-      const data = await Downloader(urlToTry, {
-        version: "v3",
-      });
-      
-      console.log(`Response from ${urlToTry}:`, data?.status);
-      
-      // If successful, return the data
-      if (data && data.status === "success" && data.result) {
-        console.log("SUCCESS with URL:", urlToTry);
-        return data;
+  for (const service of services) {
+    for (const userAgent of userAgents) {
+      try {
+        console.log(`Trying ${service.name} with ${userAgent.split(' ')[0]}...`);
+        
+        const response = await fetch(service.url, {
+          method: 'GET',
+          headers: {
+            'User-Agent': userAgent,
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Cache-Control': 'max-age=0',
+            'Referer': 'https://www.tiktok.com/',
+            'Origin': 'https://www.tiktok.com'
+          },
+          signal: AbortSignal.timeout(15000)
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log(`${service.name} response:`, data);
+        
+        // Check if the response indicates success
+        if (service.name.includes('TikWM')) {
+          if (data.code === 0 && data.data) {
+            return service.transform(data);
+          } else {
+            throw new Error(data.msg || `${service.name} returned error code: ${data.code}`);
+          }
+        } else if (service.name.includes('SnapTik')) {
+          if (data && (data.collector || data.videoMeta)) {
+            return service.transform(data);
+          } else {
+            throw new Error(`${service.name} returned invalid data structure`);
+          }
+        }
+        
+      } catch (error) {
+        console.log(`${service.name} failed:`, error.message);
+        lastError = error;
+        
+        // Add delay between attempts to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        continue;
       }
-      
-      lastError = new Error(`API returned: ${data?.status} - ${data?.message || 'Unknown error'}`);
-      
-    } catch (error) {
-      console.log(`Failed with ${urlToTry}:`, error.message);
-      lastError = error;
-      continue; // Try next variation
     }
   }
   
-  // If all variations failed, throw the last error
-  throw lastError || new Error("All URL variations failed");
+  throw lastError || new Error("All API services failed");
 }
 
 export const GET: APIRoute = async (context) => {
   try {
-    console.log("=== ASTRO API DEBUG ===");
-    console.log("1. Full context:", Object.keys(context));
-    console.log("2. request.url:", context.request.url);
-    console.log("3. url object:", context.url);
-
-    // Try multiple ways to get URL parameters
-    const requestUrl = context.request.url;
-    const contextUrl = context.url;
-
-    console.log("4. Trying URL parsing...");
-
-    // Method 1: Parse request.url directly
-    let urlTik = "";
-    try {
-      const parsedUrl = new URL(requestUrl);
-      urlTik = parsedUrl.searchParams.get("url") || "";
-      console.log("5. Method 1 (request.url):", urlTik);
-    } catch (e) {
-      console.log("5. Method 1 failed:", e.message);
+    console.log("=== TikTok API Request ===");
+    
+    const url = context.url.searchParams.get("url");
+    console.log("Requested URL:", url);
+    
+    if (!url) {
+      return new Response(JSON.stringify({
+        error: "URL parameter is required",
+        status: "error"
+      }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" }
+      });
     }
-
-    // Method 2: Use context.url
-    if (!urlTik && contextUrl) {
-      try {
-        urlTik = contextUrl.searchParams.get("url") || "";
-        console.log("6. Method 2 (context.url):", urlTik);
-      } catch (e) {
-        console.log("6. Method 2 failed:", e.message);
-      }
+    
+    // Validate TikTok URL
+    if (!url.includes("tiktok.com") && !url.includes("douyin")) {
+      return new Response(JSON.stringify({
+        error: "Invalid URL. Please provide a valid TikTok URL.",
+        status: "error"
+      }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" }
+      });
     }
-
-    // Method 3: Parse manually from URL string
-    if (!urlTik) {
-      try {
-        const urlMatch = requestUrl.match(/[?&]url=([^&]*)/);
-        if (urlMatch) {
-          urlTik = decodeURIComponent(urlMatch[1]);
-          console.log("7. Method 3 (regex):", urlTik);
-        }
-      } catch (e) {
-        console.log("7. Method 3 failed:", e.message);
-      }
+    
+    console.log("Starting API requests...");
+    const data = await tryMultipleServices(url);
+    
+    // Validate result
+    if (!data || !data.result) {
+      throw new Error("No data returned from API services");
     }
-
-    console.log("8. Final urlTik:", urlTik);
-
-    if (!urlTik) {
-      console.log("9. ERROR: No URL parameter found with any method");
-      console.log("Last Response", contextUrl);
-      return new Response(
-        JSON.stringify({
-          error: "url is required",
-          status: "error",
-          debug: {
-            requestUrl: requestUrl,
-            contextUrl: contextUrl ? contextUrl.href : null,
-            contextSearch: contextUrl ? contextUrl.search : null,
-            tried: ["new URL(request.url)", "context.url", "regex parsing"],
-          },
-        }),
-        {
-          status: 400,
-          headers: {
-            "content-type": "application/json",
-          },
-        }
-      );
-    }
-
-    // Validate TikTok URL format
-    if (!urlTik.includes("tiktok.com") && !urlTik.includes("douyin")) {
-      console.log("10. ERROR: Invalid TikTok URL format");
-      return new Response(
-        JSON.stringify({
-          error: "Invalid TikTok URL format. Please provide a valid TikTok URL.",
-          status: "error",
-        }),
-        {
-          status: 400,
-          headers: {
-            "content-type": "application/json",
-          },
-        }
-      );
-    }
-
-    console.log("11. URL validation passed, calling TikTok API...");
-
-    // Handle douyin URLs
-    let processedUrl = urlTik;
-    if (urlTik.includes("douyin")) {
-      try {
-        processedUrl = await fetch(urlTik, {
-          method: "HEAD",
-          redirect: "follow",
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-          }
-        }).then((response) => {
-          return response.url.replace("douyin", "tiktok");
-        });
-        console.log("12. Processed douyin URL:", processedUrl);
-      } catch (e) {
-        console.error("Error processing douyin URL:", e);
-      }
-    }
-
-    // Call the TikTok downloader with multiple URL format attempts
-    console.log("13. Calling TikTok API with multiple URL formats...");
-    let data = await tryMultipleUrlFormats(processedUrl);
-
-    console.log("14. TikTok API response status:", data?.status);
-
-    // Check if the response is successful
-    if (!data || data.status === "error") {
-      console.log("15. ERROR: TikTok API returned error");
-      return new Response(
-        JSON.stringify({
-          error: data?.message || "Failed to fetch video data. The video might be private or restricted.",
-          status: "error",
-        }),
-        {
-          status: 400,
-          headers: {
-            "content-type": "application/json",
-          },
-        }
-      );
-    }
-
-    // Validate response structure
-    if (!data.result) {
-      console.log("16. ERROR: No result data in response");
-      return new Response(
-        JSON.stringify({
-          error: "Invalid response format - missing result data. The video might be unavailable.",
-          status: "error",
-        }),
-        {
-          status: 400,
-          headers: {
-            "content-type": "application/json",
-          },
-        }
-      );
-    }
-
-    // Process the data
-    const isStory = processedUrl.includes("/story/");
-    if (isStory && data.result) {
-      data.result.type = "story";
-    }
-
-    // Add upload date
-    const createTime = data?.result?.create_time;
-    const uploadDate = createTime ? new Date(createTime * 1000).toISOString() : null;
-    if (data.result) {
-      data.result.uploadDate = uploadDate;
-    }
-
-    // Ensure author object exists
-    if (data.result && !data.result.author) {
-      data.result.author = {
-        avatar: null,
-        nickname: "Unknown Author",
-      };
-    }
-
-    // Check if we have video URLs - this is crucial for your issue
+    
+    // Check for downloadable content
     const hasVideo = data.result.videoSD || data.result.videoHD || data.result.video_hd || data.result.videoWatermark;
     const hasAudio = data.result.music;
+    const hasImages = data.result.images;
     
-    if (!hasVideo && !hasAudio) {
-      console.log("17. WARNING: No downloadable content found in response");
-      return new Response(
-        JSON.stringify({
-          error: "Video not found or is not available for download. The video might be private, age-restricted, or deleted.",
-          status: "error",
-        }),
-        {
-          status: 400,
-          headers: {
-            "content-type": "application/json",
-          },
-        }
-      );
+    if (!hasVideo && !hasAudio && !hasImages) {
+      return new Response(JSON.stringify({
+        error: "This video appears to be private, deleted, or not available for download.",
+        status: "error"
+      }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" }
+      });
     }
-
-    console.log("18. SUCCESS: Returning processed data with video URLs");
-    console.log("Available video URLs:", {
-      videoSD: !!data.result.videoSD,
-      videoHD: !!data.result.videoHD,
-      video_hd: !!data.result.video_hd,
-      videoWatermark: !!data.result.videoWatermark,
-      music: !!data.result.music
-    });
+    
+    console.log("Success! Returning data...");
     
     return new Response(JSON.stringify(data), {
       status: 200,
       headers: {
-        "content-type": "application/json",
-      },
-    });
-  } catch (error) {
-    console.error("=== API ERROR ===", error);
-    return new Response(
-      JSON.stringify({
-        error: error.message || "Internal server error. Please try again with a different URL format.",
-        status: "error",
-        stack: error.stack,
-      }),
-      {
-        status: 500,
-        headers: {
-          "content-type": "application/json",
-        },
+        "Content-Type": "application/json",
+        "Cache-Control": "public, max-age=300", // 5 minute cache
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Headers": "Content-Type"
       }
-    );
+    });
+    
+  } catch (error) {
+    console.error("=== Final Error ===", error);
+    
+    let errorMessage = "Unable to process TikTok video.";
+    let statusCode = 500;
+    
+    if (error.message.includes("403")) {
+      errorMessage = "TikTok is currently blocking requests. Please try again later or use a different URL format.";
+      statusCode = 403;
+    } else if (error.message.includes("404")) {
+      errorMessage = "Video not found. It may be private, deleted, or the URL is incorrect.";
+      statusCode = 404;
+    } else if (error.message.includes("timeout")) {
+      errorMessage = "Request timed out. The service may be temporarily unavailable.";
+      statusCode = 408;
+    } else if (error.message.includes("private") || error.message.includes("deleted")) {
+      errorMessage = "This video is private or has been deleted.";
+      statusCode = 404;
+    }
+    
+    return new Response(JSON.stringify({
+      error: errorMessage,
+      status: "error",
+      details: error.message,
+      timestamp: new Date().toISOString()
+    }), {
+      status: statusCode,
+      headers: { "Content-Type": "application/json" }
+    });
   }
 };
