@@ -10,6 +10,7 @@ import icon from "astro-icon";
 import vercel from "@astrojs/vercel";
 import tailwindcss from "@tailwindcss/vite";
 
+
 export default defineConfig({
   output: "static", 
   site: "https://tiktokio.cam",
